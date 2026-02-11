@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HPE DL320 G6 - Simulateur Mémoire DDR3</title>
+  <style>
+    :root {
+      --bg-0: #05121f;
+      --bg-1: #0c2236;
+      --bg-2: #133452;
+      --panel: #0b2136;
+      --card: #102f4a;
+      --slot: #0d2941;
+      --slot-border: #3b6488;
+      --text: #e9f4ff;
+      --muted: #9db6cc;
+      --ok: #2ecc71;
+      --warn: #f39c12;
+      --err: #e74c3c;
+      --accent: #3bb8ff;
+      --radius: 14px;
+      --shadow: 0 12px 30px rgba(0,0,0,.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 15% -10%, #1f4f78 0%, var(--bg-1) 40%, var(--bg-0) 90%);
+      min-height: 100vh;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 370px minmax(0, 1fr);
+      gap: 16px;
+      padding: 16px;
+      align-items: start;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(17,45,71,.96), rgba(8,25,41,.95));
+      border: 1px solid #2f587d;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      position: sticky;
+      top: 12px;
+      max-height: calc(100vh - 24px);
+      overflow: auto;
+    }
+
+    h1 { margin: 0 0 6px; font-size: 1.15rem; }
+    h2 { margin: 16px 0 10px; font-size: .95rem; color: #cfe8ff; }
+    .small { margin: 0; color: var(--muted); font-size: .84rem; }
+
+    .quick-help {
+      margin-top: 10px;
+      border: 1px solid #315e84;
+      border-radius: 10px;
+      padding: 10px;
+      background: rgba(10,30,49,.75);
+      font-size: .8rem;
+      line-height: 1.4;
+      color: #c4dbef;
+    }
+
+    .btns { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; }
+
+    button {
+      border: 1px solid #48739a;
+      background: linear-gradient(180deg, #26618f, #194766);
+      color: #fff;
+      border-radius: 10px;
+      padding: 9px 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .18s ease, filter .2s ease;
+    }
+    button:hover { transform: translateY(-1px); filter: brightness(1.08); }
+    button.ghost { background: linear-gradient(180deg, #27435a, #1a3348); }
+
+    .gauge {
+      margin: 8px 0;
+      background: #071a2b;
+      border: 1px solid #2b4f6e;
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+      height: 20px;
+    }
+    .gauge-fill { width: 0; height: 100%; transition: width .35s ease, background .25s ease; }
+    .gauge-label { position: absolute; inset: 0; display: grid; place-items: center; font-size: .74rem; text-shadow: 0 1px 2px #000; }
+
+    .summary-table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+    .summary-table td { border-bottom: 1px solid #244a69; padding: 6px 2px; }
+    .summary-table td:last-child { text-align: right; font-weight: 700; }
+
+    .status-log {
+      margin-top: 10px;
+      border: 1px solid #2f5170;
+      border-radius: 10px;
+      background: rgba(8,24,39,.8);
+      padding: 8px;
+      max-height: 150px;
+      overflow: auto;
+      font-size: .82rem;
+      line-height: 1.4;
+    }
+    .msg-ok { color: #9cf2c4; }
+    .msg-warn { color: #ffd082; }
+    .msg-err { color: #ffa3a1; }
+
+    .target-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      align-items: end;
+    }
+    .field label { display: block; font-size: .75rem; color: #bdd7ee; margin-bottom: 4px; }
+    .field input, .field select {
+      width: 100%;
+      border: 1px solid #3e6a8f;
+      border-radius: 8px;
+      background: #12314d;
+      color: var(--text);
+      padding: 8px;
+    }
+    .goal-box {
+      margin-top: 8px;
+      border: 1px solid #345f84;
+      border-radius: 10px;
+      background: rgba(12,34,53,.8);
+      padding: 8px;
+      font-size: .8rem;
+      color: #c7dff5;
+    }
+
+    .workspace { display: grid; gap: 14px; }
+    .channels {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(220px,1fr));
+      gap: 10px;
+    }
+
+    .channel {
+      background: linear-gradient(180deg, rgba(15,38,61,.95), rgba(9,26,43,.95));
+      border: 1px solid #355d80;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 10px;
+    }
+    .channel h3 { margin: 0 0 8px; font-size: .95rem; }
+
+    .slot {
+      min-height: 108px;
+      border: 2px dashed var(--slot-border);
+      border-radius: 12px;
+      padding: 8px;
+      margin-bottom: 8px;
+      background: linear-gradient(180deg, rgba(19,50,79,.85), rgba(10,28,45,.95));
+      transition: box-shadow .2s ease, border-color .2s ease, transform .2s ease;
+    }
+    .slot:hover { transform: translateY(-1px); box-shadow: inset 0 0 0 1px #89d4ff, 0 8px 20px rgba(0,0,0,.35); }
+    .slot.over { border-color: #92e2ff; box-shadow: 0 0 18px rgba(59,184,255,.45); }
+    .slot-head { display: flex; justify-content: space-between; font-size: .78rem; color: #c6def3; }
+    .slot-empty { margin-top: 8px; font-size: .8rem; color: #88adc9; }
+
+    .pool {
+      background: rgba(12,33,51,.95);
+      border: 1px solid #396285;
+      border-radius: var(--radius);
+      padding: 10px;
+    }
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: .79rem; color: #bdd6ec; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+
+    .creator {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(4,minmax(0,1fr)) auto;
+      gap: 8px;
+    }
+
+    .pool-list {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(190px,1fr));
+    }
+
+    .dimm {
+      border: 1px solid rgba(255,255,255,.22);
+      border-radius: 10px;
+      padding: 8px 8px 16px;
+      cursor: grab;
+      user-select: none;
+      position: relative;
+      overflow: hidden;
+      transition: transform .18s ease, box-shadow .18s ease, filter .2s ease;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    .dimm:hover { transform: translateY(-1px); box-shadow: 0 7px 16px rgba(0,0,0,.35); }
+    .dimm.dragging { opacity: .65; }
+    .dimm.ok { background: linear-gradient(180deg, #2b754f, #1e4f35); }
+    .dimm.warn { background: linear-gradient(180deg, #8b6325, #664715); }
+    .dimm.err { background: linear-gradient(180deg, #8a3434, #5e2121); }
+
+    .dimm::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(135deg, rgba(255,255,255,.07) 0 3px, transparent 3px 8px);
+      opacity: .26;
+      pointer-events: none;
+    }
+    .dimm::after {
+      content: "";
+      position: absolute;
+      left: 6%;
+      right: 6%;
+      bottom: 4px;
+      height: 8px;
+      border-radius: 0 0 6px 6px;
+      background: repeating-linear-gradient(90deg, #caa14c 0 7px, #e8cb83 7px 10px);
+    }
+
+    .dimm .title, .dimm .meta, .dimm .chips, .dimm .actions { position: relative; z-index: 1; }
+    .dimm .title { font-size: .88rem; font-weight: 700; }
+    .dimm .meta { font-size: .73rem; color: #d3e9fd; margin-bottom: 6px; }
+
+    .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    .chip {
+      height: 12px;
+      border-radius: 3px;
+      border: 1px solid rgba(0,0,0,.65);
+      background: linear-gradient(180deg, #1b2230, #090f16);
+      box-shadow: inset 0 1px 1px rgba(255,255,255,.08);
+    }
+    .chip.off { opacity: .32; filter: grayscale(.8); }
+
+    .actions {
+      margin-top: 6px;
+      display: flex;
+      gap: 6px;
+    }
+    .mini-btn {
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 7px;
+      font-size: .7rem;
+      padding: 2px 6px;
+      background: rgba(8,25,38,.35);
+      color: #fff;
+      cursor: pointer;
+    }
+
+    @media (max-width: 1280px) {
+      .app { grid-template-columns: 1fr; }
+      .panel { position: static; max-height: none; }
+    }
+
+    @media (max-width: 980px) {
+      .channels { grid-template-columns: 1fr; }
+      .creator { grid-template-columns: 1fr 1fr; }
+      .target-grid { grid-template-columns: 1fr; }
+      .btns { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel">
+      <h1>Simulateur HPE ProLiant DL320 G6</h1>
+      <p class="small">DDR3 • 3 canaux (A/B/C) • 9 slots • validation temps réel</p>
+      <div class="quick-help"><strong>Mode d’emploi :</strong> glissez les DIMM dans les slots, utilisez <em>Équilibrer au mieux</em> pour optimiser automatiquement, puis vérifiez les alertes.</div>
+
+      <h2>Pré-réglages</h2>
+      <div class="btns">
+        <button data-preset="current">Config actuelle</button>
+        <button data-preset="balanced6">6 × 4 Go équilibré</button>
+        <button data-preset="full9">9 × 2 Go complet</button>
+        <button id="resetBtn" class="ghost">Réinitialiser</button>
+      </div>
+      <div class="target-grid" style="margin-top:8px;">
+        <div class="field">
+          <label for="presetSelect">Liste de préréglages</label>
+          <select id="presetSelect">
+            <option value="current">Config actuelle (dmidecode)</option>
+            <option value="balanced6">6 × 4 Go équilibré</option>
+            <option value="full9">9 × 2 Go complet</option>
+          </select>
+        </div>
+        <button id="applyPresetListBtn" class="ghost">Appliquer la liste</button>
+      </div>
+
+      <h2>Objectif capacité</h2>
+      <div class="target-grid">
+        <div class="field">
+          <label for="targetCapacity">Cible (Go)</label>
+          <input id="targetCapacity" type="number" min="0" step="2" value="24" />
+        </div>
+        <div class="field">
+          <label for="goalSizeHint">Taille DIMM de référence</label>
+          <select id="goalSizeHint"><option>2</option><option selected>4</option><option>8</option><option>16</option></select>
+        </div>
+      </div>
+      <div class="goal-box" id="goalBox">Analyse objectif en cours...</div>
+      <div class="btns" style="margin-top:8px;">
+        <button id="autoBalanceBtn">Équilibrer au mieux</button>
+        <button id="fillGoalBtn" class="ghost">Atteindre la cible</button>
+      </div>
+
+      <h2>Indicateurs</h2>
+      <div class="gauge"><div id="balanceGauge" class="gauge-fill"></div><div id="balanceLabel" class="gauge-label">Équilibre: 0%</div></div>
+      <div class="gauge"><div id="freqGauge" class="gauge-fill"></div><div id="freqLabel" class="gauge-label">Fréquence effective: 0 MT/s</div></div>
+      <div class="gauge"><div id="occupancyGauge" class="gauge-fill"></div><div id="occupancyLabel" class="gauge-label">Occupation: 0%</div></div>
+
+      <table class="summary-table">
+        <tr><td>Capacité totale</td><td id="sumCapacity">0 Go</td></tr>
+        <tr><td>Type DIMM</td><td id="sumType">-</td></tr>
+        <tr><td>Nombre barrettes</td><td id="sumCount">0</td></tr>
+        <tr><td>Ranks totaux</td><td id="sumRanks">0</td></tr>
+        <tr><td>Canal A/B/C</td><td id="sumChannels">0 / 0 / 0 Go</td></tr>
+      </table>
+
+      <h2>Validation</h2>
+      <button id="checkBtn" style="width:100%;">Vérifier la configuration</button>
+      <div id="statusLog" class="status-log"></div>
+    </aside>
+
+    <main class="workspace">
+      <section class="channels" id="channels"></section>
+
+      <section class="pool">
+        <h2 style="margin-top:0;">Stock DIMM (duplication / suppression)</h2>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--ok)"></i>OK</span>
+          <span><i class="dot" style="background:var(--warn)"></i>Avertissement</span>
+          <span><i class="dot" style="background:var(--err)"></i>Erreur</span>
+        </div>
+
+        <div class="creator">
+          <select id="sizeSelect"><option>2</option><option>4</option><option>8</option><option>16</option></select>
+          <select id="typeSelect"><option>RDIMM</option><option>UDIMM</option></select>
+          <select id="freqSelect"><option>800</option><option>1066</option><option selected>1333</option></select>
+          <select id="qtySelect"><option>1</option><option>2</option><option>3</option><option>6</option><option>9</option></select>
+          <button id="addDimmBtn">Ajouter</button>
+        </div>
+
+        <div id="pool" class="pool-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    /** Topologie physique officielle simplifiée en 3 canaux et 9 slots. */
+    const SLOT_LAYOUT = [
+      { id: 'A1', channel: 'A', label: 'PROC1 DIMM1A' },
+      { id: 'A2', channel: 'A', label: 'PROC1 DIMM2D' },
+      { id: 'A3', channel: 'A', label: 'PROC1 DIMM3A' },
+      { id: 'B1', channel: 'B', label: 'PROC1 DIMM4B' },
+      { id: 'B2', channel: 'B', label: 'PROC1 DIMM5E' },
+      { id: 'B3', channel: 'B', label: 'PROC1 DIMM6B' },
+      { id: 'C1', channel: 'C', label: 'PROC1 DIMM7C' },
+      { id: 'C2', channel: 'C', label: 'PROC1 DIMM8F' },
+      { id: 'C3', channel: 'C', label: 'PROC1 DIMM9C' }
+    ];
+
+    /** Ordre d’implantation interleave pour équilibrage A/B/C par profondeur de slot. */
+    const INTERLEAVE_ORDER = ['A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'A3', 'B3', 'C3'];
+
+    /** État global de l’application. */
+    const state = {
+      slots: Object.fromEntries(SLOT_LAYOUT.map(s => [s.id, null])),
+      pool: [],
+      lastMessages: []
+    };
+
+    const channelsEl = document.getElementById('channels');
+    const poolEl = document.getElementById('pool');
+    const statusLogEl = document.getElementById('statusLog');
+
+    /** Calcule le rank depuis taille/type DIMM (modèle simplifié). */
+    function computeRank(size, type) {
+      const udimm = { 2: 1, 4: 2, 8: 2, 16: 4 };
+      const rdimm = { 2: 1, 4: 1, 8: 2, 16: 4 };
+      return (type === 'UDIMM' ? udimm : rdimm)[size] || 1;
+    }
+
+    /** Crée une DIMM avec identifiant unique. */
+    function createDimm(size, type, freq) {
+      return {
+        id: crypto.randomUUID(),
+        size: Number(size),
+        type,
+        freq: Number(freq),
+        rank: computeRank(Number(size), type)
+      };
+    }
+
+    /** Ajoute un message de validation UI. */
+    function pushMessage(level, text) { state.lastMessages.push({ level, text }); }
+
+    /** Nettoie les messages précédents. */
+    function clearMessages() { state.lastMessages = []; }
+
+    /** Retourne les DIMM installées dans les slots. */
+    function allInstalled() { return Object.values(state.slots).filter(Boolean); }
+
+    /** Retourne les DIMM installées + stock. */
+    function allDimms() { return [...allInstalled(), ...state.pool]; }
+
+    /** Évalue la configuration selon règles DL320 G6 simplifiées. */
+    function evaluateConfiguration() {
+      clearMessages();
+      const installed = allInstalled();
+      const channels = { A: [], B: [], C: [] };
+      SLOT_LAYOUT.forEach(slot => {
+        if (state.slots[slot.id]) channels[slot.channel].push(state.slots[slot.id]);
+      });
+
+      const types = [...new Set(installed.map(d => d.type))];
+      if (!installed.length) pushMessage('warn', 'Aucune DIMM installée : glissez une barrette depuis le stock.');
+      if (types.length > 1) pushMessage('err', 'Mélange RDIMM / UDIMM interdit sur la plateforme.');
+
+      const channelTotals = {
+        A: channels.A.reduce((a, d) => a + d.size, 0),
+        B: channels.B.reduce((a, d) => a + d.size, 0),
+        C: channels.C.reduce((a, d) => a + d.size, 0)
+      };
+      const channelRanks = {
+        A: channels.A.reduce((a, d) => a + d.rank, 0),
+        B: channels.B.reduce((a, d) => a + d.rank, 0),
+        C: channels.C.reduce((a, d) => a + d.rank, 0)
+      };
+
+      for (const ch of ['A', 'B', 'C']) {
+        if (channelRanks[ch] > 8) pushMessage('err', `Canal ${ch}: ${channelRanks[ch]} ranks (max 8).`);
+      }
+
+      const caps = Object.values(channelTotals);
+      const maxCap = Math.max(...caps, 0);
+      const minCap = Math.min(...caps, 0);
+      const balanceScore = maxCap === 0 ? 0 : Math.max(0, Math.round(100 - ((maxCap - minCap) / maxCap) * 100));
+      if (balanceScore >= 90) pushMessage('ok', 'Canaux très bien équilibrés.');
+      else if (balanceScore >= 70) pushMessage('warn', 'Canaux partiellement équilibrés.');
+      else pushMessage('err', 'Déséquilibre important entre canaux.');
+
+      const empties = SLOT_LAYOUT.filter(s => !state.slots[s.id]).length;
+      if (empties >= 6) pushMessage('warn', 'Beaucoup de slots vides : performances mémoire limitées.');
+      else if (empties > 0) pushMessage('ok', 'Slots libres disponibles pour extension.');
+
+      let effectiveFreq = 0;
+      if (installed.length) {
+        const avg = installed.reduce((a, d) => a + d.freq, 0) / installed.length;
+        const min = Math.min(...installed.map(d => d.freq));
+        const threePerChannel = Object.values(channels).some(c => c.length === 3);
+        const has16 = installed.some(d => d.size === 16);
+        const cap = (threePerChannel || has16) ? 1066 : 1333;
+        const raw = Math.min(avg, min, cap);
+        effectiveFreq = raw >= 1200 ? 1333 : raw >= 930 ? 1066 : 800;
+      }
+
+      if (effectiveFreq === 1333) pushMessage('ok', 'Fréquence optimale: 1333 MT/s.');
+      if (effectiveFreq === 1066) pushMessage('warn', 'Fréquence réduite: 1066 MT/s.');
+      if (effectiveFreq === 800) pushMessage('warn', 'Fréquence basse: 800 MT/s.');
+
+      return {
+        installed,
+        types,
+        channelTotals,
+        channelRanks,
+        totalCapacity: installed.reduce((a, d) => a + d.size, 0),
+        totalRanks: installed.reduce((a, d) => a + d.rank, 0),
+        balanceScore,
+        effectiveFreq,
+        occupancyPct: Math.round((installed.length / SLOT_LAYOUT.length) * 100),
+        errors: state.lastMessages.filter(m => m.level === 'err').length,
+        warnings: state.lastMessages.filter(m => m.level === 'warn').length
+      };
+    }
+
+    /** Renvoie le statut couleur d’une DIMM. */
+    function dimmStatus(dimm, evaluation) {
+      if (evaluation.errors > 0) return 'err';
+      if (evaluation.warnings > 0) return 'warn';
+      return 'ok';
+    }
+
+    /** Génère texture de puces en fonction du rank DIMM. */
+    function renderChipTexture(dimm) {
+      const active = Math.min(8, Math.max(4, dimm.rank * 2));
+      let html = '';
+      for (let i = 0; i < 8; i++) html += `<span class="chip ${i < active ? '' : 'off'}"></span>`;
+      return html;
+    }
+
+    /** Rend un composant DIMM drag & drop. */
+    function renderDimmElement(dimm, status, channel) {
+      const el = document.createElement('article');
+      el.className = `dimm ${status}`;
+      el.draggable = true;
+      el.dataset.dimmId = dimm.id;
+      el.title = `DIMM ${dimm.size} Go ${dimm.type} | ${dimm.freq} MT/s | Rank ${dimm.rank} | ${channel}`;
+      el.innerHTML = `
+        <div class="title">${dimm.size} Go ${dimm.type}</div>
+        <div class="meta">${dimm.freq} MT/s • Rank ${dimm.rank} • ${dimm.type === 'RDIMM' ? 'Registered' : 'Unbuffered'}</div>
+        <div class="chips">${renderChipTexture(dimm)}</div>
+      `;
+
+      if (channel === 'POOL') {
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+        actions.innerHTML = `<button class="mini-btn" data-act="dup">Dupliquer</button><button class="mini-btn" data-act="del">Supprimer</button>`;
+        actions.addEventListener('click', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          const btn = e.target.closest('button');
+          if (!btn) return;
+          if (btn.dataset.act === 'dup') state.pool.push(createDimm(dimm.size, dimm.type, dimm.freq));
+          if (btn.dataset.act === 'del') state.pool = state.pool.filter(d => d.id !== dimm.id);
+          refresh();
+        });
+        el.appendChild(actions);
+      }
+
+      el.addEventListener('dragstart', ev => {
+        el.classList.add('dragging');
+        ev.dataTransfer.setData('text/plain', dimm.id);
+      });
+      el.addEventListener('dragend', () => el.classList.remove('dragging'));
+      el.addEventListener('dblclick', () => {
+        const src = locateDimm(dimm.id);
+        if (src?.slotId) {
+          state.pool.push(state.slots[src.slotId]);
+          state.slots[src.slotId] = null;
+          refresh();
+        }
+      });
+      return el;
+    }
+
+    /** Localise une DIMM dans slot/pool. */
+    function locateDimm(dimmId) {
+      for (const [slotId, dimm] of Object.entries(state.slots)) if (dimm?.id === dimmId) return { slotId };
+      const poolIndex = state.pool.findIndex(d => d.id === dimmId);
+      if (poolIndex >= 0) return { poolIndex };
+      return null;
+    }
+
+    /** Active événements de drop sur un conteneur cible. */
+    function attachDropEvents(target, isPool = false) {
+      target.addEventListener('dragover', ev => { ev.preventDefault(); target.classList.add('over'); });
+      target.addEventListener('dragleave', () => target.classList.remove('over'));
+      target.addEventListener('drop', ev => {
+        ev.preventDefault();
+        target.classList.remove('over');
+        const dimmId = ev.dataTransfer.getData('text/plain');
+        moveDimm(dimmId, isPool ? null : target.dataset.slot);
+      });
+    }
+
+    /** Déplace une DIMM vers slot ou pool. */
+    function moveDimm(dimmId, destinationSlotId) {
+      const src = locateDimm(dimmId);
+      if (!src) return;
+      let dimm;
+      if (src.slotId) {
+        dimm = state.slots[src.slotId];
+        state.slots[src.slotId] = null;
+      } else {
+        dimm = state.pool.splice(src.poolIndex, 1)[0];
+      }
+      if (!destinationSlotId) {
+        state.pool.push(dimm);
+      } else {
+        if (state.slots[destinationSlotId]) state.pool.push(state.slots[destinationSlotId]);
+        state.slots[destinationSlotId] = dimm;
+      }
+      refresh();
+    }
+
+    /** Rend les canaux et slots. */
+    function renderSlots(evaluation) {
+      channelsEl.innerHTML = '';
+      ['A', 'B', 'C'].forEach(channel => {
+        const wrap = document.createElement('section');
+        wrap.className = 'channel';
+        wrap.innerHTML = `<h3>Canal ${channel}</h3>`;
+        SLOT_LAYOUT.filter(s => s.channel === channel).forEach(slot => {
+          const slotEl = document.createElement('div');
+          slotEl.className = 'slot';
+          slotEl.dataset.slot = slot.id;
+          slotEl.innerHTML = `<div class="slot-head"><strong>${slot.id}</strong><span>${slot.label}</span></div>`;
+          const dimm = state.slots[slot.id];
+          if (dimm) slotEl.appendChild(renderDimmElement(dimm, dimmStatus(dimm, evaluation), slot.channel));
+          else {
+            const hint = document.createElement('div');
+            hint.className = 'slot-empty';
+            hint.textContent = 'Slot vide • Déposez une DIMM';
+            slotEl.appendChild(hint);
+          }
+          attachDropEvents(slotEl);
+          wrap.appendChild(slotEl);
+        });
+        channelsEl.appendChild(wrap);
+      });
+    }
+
+    /** Rend le stock de DIMM. */
+    function renderPool(evaluation) {
+      poolEl.innerHTML = '';
+      state.pool.forEach(d => poolEl.appendChild(renderDimmElement(d, dimmStatus(d, evaluation), 'POOL')));
+      attachDropEvents(poolEl, true);
+    }
+
+    /** Met à jour les jauges. */
+    function renderGauges(e) {
+      const setGauge = (idFill, idLabel, pct, text, mode = 'ok') => {
+        const fill = document.getElementById(idFill);
+        const label = document.getElementById(idLabel);
+        fill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+        fill.style.background = mode === 'err' ? 'var(--err)' : mode === 'warn' ? 'var(--warn)' : 'var(--ok)';
+        label.textContent = text;
+      };
+      setGauge('balanceGauge', 'balanceLabel', e.balanceScore, `Équilibre canaux: ${e.balanceScore}%`, e.balanceScore < 70 ? 'err' : e.balanceScore < 90 ? 'warn' : 'ok');
+      const freqPct = e.effectiveFreq ? Math.round((e.effectiveFreq / 1333) * 100) : 0;
+      setGauge('freqGauge', 'freqLabel', freqPct, `Fréquence effective: ${e.effectiveFreq || 0} MT/s`, e.effectiveFreq === 800 ? 'err' : e.effectiveFreq === 1066 ? 'warn' : 'ok');
+      setGauge('occupancyGauge', 'occupancyLabel', e.occupancyPct, `Occupation slots: ${e.occupancyPct}%`, e.occupancyPct < 34 ? 'warn' : 'ok');
+    }
+
+    /** Met à jour le tableau récapitulatif. */
+    function renderSummary(e) {
+      document.getElementById('sumCapacity').textContent = `${e.totalCapacity} Go`;
+      document.getElementById('sumType').textContent = e.types.length ? e.types.join(' + ') : '-';
+      document.getElementById('sumCount').textContent = `${e.installed.length}`;
+      document.getElementById('sumRanks').textContent = `${e.totalRanks}`;
+      document.getElementById('sumChannels').textContent = `${e.channelTotals.A} / ${e.channelTotals.B} / ${e.channelTotals.C} Go`;
+    }
+
+    /** Affiche les messages de validation. */
+    function renderMessages() {
+      statusLogEl.innerHTML = state.lastMessages.map(m => `<div class="msg-${m.level}">• ${m.text}</div>`).join('');
+    }
+
+    /** Calcule et affiche le plan objectif capacité + taux d’occupation conseillé. */
+    function renderGoalPlan(evaluation) {
+      const targetGo = Number(document.getElementById('targetCapacity').value || 0);
+      const defaultSize = Number(document.getElementById('goalSizeHint').value || 4);
+      const existing = allDimms();
+      const sizeRef = existing.length ? Math.round(existing.reduce((a, d) => a + d.size, 0) / existing.length) : defaultSize;
+      const recommendedCount = targetGo > 0 ? Math.min(9, Math.ceil(targetGo / Math.max(sizeRef, 1))) : 0;
+      const targetOcc = Math.round((recommendedCount / 9) * 100);
+      const needed = Math.max(0, targetGo - evaluation.totalCapacity);
+      const goalBox = document.getElementById('goalBox');
+      goalBox.innerHTML = `
+        Cible: <strong>${targetGo} Go</strong><br>
+        DIMM estimée: ~<strong>${sizeRef} Go</strong> par barrette<br>
+        Recommandation: <strong>${recommendedCount}</strong> barrettes (occupation cible <strong>${targetOcc}%</strong>)<br>
+        Reste à installer: <strong>${needed} Go</strong>
+      `;
+    }
+
+    /** Retourne le type dominant (ou RDIMM par défaut). */
+    function dominantType() {
+      const modules = allDimms();
+      if (!modules.length) return 'RDIMM';
+      const count = modules.reduce((acc, d) => (acc[d.type] = (acc[d.type] || 0) + 1, acc), {});
+      return (count.RDIMM || 0) >= (count.UDIMM || 0) ? 'RDIMM' : 'UDIMM';
+    }
+
+    /** Nettoie la config en remettant tout dans le pool. */
+    function flattenToPool() {
+      Object.keys(state.slots).forEach(slotId => {
+        if (state.slots[slotId]) {
+          state.pool.push(state.slots[slotId]);
+          state.slots[slotId] = null;
+        }
+      });
+    }
+
+    /** Place automatiquement les DIMM dans l’ordre interleave pour meilleur équilibre. */
+    function autoBalance({ targetGo = null } = {}) {
+      flattenToPool();
+      const preferType = dominantType();
+      const candidates = state.pool
+        .filter(d => d.type === preferType)
+        .sort((a, b) => b.size - a.size || b.freq - a.freq || a.rank - b.rank);
+
+      // Réservoir de DIMM non retenues.
+      const keep = [];
+      const chosen = [];
+      let total = 0;
+      for (const dimm of candidates) {
+        if (chosen.length >= 9) { keep.push(dimm); continue; }
+        if (targetGo && total >= targetGo) { keep.push(dimm); continue; }
+        chosen.push(dimm);
+        total += dimm.size;
+      }
+
+      // Remise pool avec DIMM non choisies + autres types.
+      const others = state.pool.filter(d => d.type !== preferType);
+      state.pool = [...keep, ...others];
+
+      // Placement interleave A1/B1/C1 puis A2/B2/C2 etc. avec garde rank max 8.
+      const ranksByChannel = { A: 0, B: 0, C: 0 };
+      for (const slotId of INTERLEAVE_ORDER) {
+        const slot = SLOT_LAYOUT.find(s => s.id === slotId);
+        const idx = chosen.findIndex(d => ranksByChannel[slot.channel] + d.rank <= 8);
+        if (idx === -1) continue;
+        const dimm = chosen.splice(idx, 1)[0];
+        state.slots[slotId] = dimm;
+        ranksByChannel[slot.channel] += dimm.rank;
+      }
+
+      // Reste en pool.
+      state.pool.push(...chosen);
+      refresh();
+    }
+
+    /** Atteint la cible Go demandée avec l’auto-balance. */
+    function fillToGoal() {
+      const targetGo = Number(document.getElementById('targetCapacity').value || 0);
+      autoBalance({ targetGo: targetGo > 0 ? targetGo : null });
+    }
+
+    /** Applique les pré-réglages demandés. */
+    function applyPreset(name) {
+      state.slots = Object.fromEntries(SLOT_LAYOUT.map(s => [s.id, null]));
+      state.pool = [];
+      const setSlot = (slotId, size, type = 'RDIMM', freq = 1333) => { state.slots[slotId] = createDimm(size, type, freq); };
+
+      if (name === 'current') {
+        setSlot('A2', 2, 'RDIMM', 1066);
+        setSlot('A3', 2, 'RDIMM', 1066);
+        setSlot('B2', 2, 'RDIMM', 1066);
+        setSlot('B3', 2, 'RDIMM', 1066);
+        setSlot('C3', 2, 'RDIMM', 1066);
+      } else if (name === 'balanced6') {
+        ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].forEach(slot => setSlot(slot, 4, 'RDIMM', 1333));
+      } else if (name === 'full9') {
+        SLOT_LAYOUT.forEach(slot => setSlot(slot.id, 2, 'UDIMM', 1066));
+      }
+
+      for (let i = 0; i < 8; i++) state.pool.push(createDimm(4, 'RDIMM', 1333));
+      refresh();
+    }
+
+    /** Branche tous les événements utilisateur. */
+    function wireActions() {
+      document.querySelectorAll('[data-preset]').forEach(btn => btn.addEventListener('click', () => applyPreset(btn.dataset.preset)));
+      document.getElementById('applyPresetListBtn').addEventListener('click', () => {
+        const selected = document.getElementById('presetSelect').value;
+        applyPreset(selected);
+      });
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        state.slots = Object.fromEntries(SLOT_LAYOUT.map(s => [s.id, null]));
+        state.pool = [];
+        refresh();
+      });
+      document.getElementById('checkBtn').addEventListener('click', refresh);
+      document.getElementById('autoBalanceBtn').addEventListener('click', () => autoBalance());
+      document.getElementById('fillGoalBtn').addEventListener('click', fillToGoal);
+      document.getElementById('targetCapacity').addEventListener('input', refresh);
+      document.getElementById('goalSizeHint').addEventListener('change', refresh);
+
+      document.getElementById('addDimmBtn').addEventListener('click', () => {
+        const size = Number(document.getElementById('sizeSelect').value);
+        const type = document.getElementById('typeSelect').value;
+        const freq = Number(document.getElementById('freqSelect').value);
+        const qty = Number(document.getElementById('qtySelect').value);
+        for (let i = 0; i < qty; i++) state.pool.push(createDimm(size, type, freq));
+        refresh();
+      });
+    }
+
+    /** Rafraîchit tout l’écran. */
+    function refresh() {
+      const evalResult = evaluateConfiguration();
+      renderSlots(evalResult);
+      renderPool(evalResult);
+      renderGauges(evalResult);
+      renderSummary(evalResult);
+      renderGoalPlan(evalResult);
+      renderMessages();
+    }
+
+    wireActions();
+    applyPreset('current');
+  </script>
+</body>
+</html>
