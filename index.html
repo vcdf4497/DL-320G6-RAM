@@ -1,0 +1,730 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HPE DL320 G6 - Simulateur Mémoire DDR3</title>
+  <style>
+    :root {
+      --bg: #071523;
+      --panel: #0d2237;
+      --card: #12314f;
+      --slot: #0f2a43;
+      --slot-border: #2f5579;
+      --text: #e8f3ff;
+      --muted: #9bb9d6;
+      --ok: #2ecc71;
+      --warn: #f39c12;
+      --err: #e74c3c;
+      --accent: #17a2ff;
+      --shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(circle at top, #102b45, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) 1fr;
+      gap: 18px;
+      padding: 18px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(26, 57, 89, 0.95), rgba(10, 30, 49, 0.95));
+      border: 1px solid #2c4f70;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: 1.15rem;
+      letter-spacing: 0.4px;
+    }
+
+    h2 {
+      margin: 18px 0 10px;
+      font-size: 0.95rem;
+      color: #c9e4ff;
+    }
+
+    .small { font-size: 0.85rem; color: var(--muted); margin-top: 0; }
+
+    .quick-help {
+      margin-top: 10px;
+      border: 1px solid #2d567a;
+      border-radius: 10px;
+      background: rgba(11, 32, 52, 0.8);
+      padding: 10px;
+      font-size: 0.8rem;
+      color: #c6ddf4;
+      line-height: 1.35;
+    }
+    .quick-help strong { color: #fff; }
+
+    .btns {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    button {
+      border: 1px solid #3f6b92;
+      background: linear-gradient(180deg, #1b4f78, #154364);
+      color: #fff;
+      border-radius: 10px;
+      padding: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.18s ease, filter 0.18s ease;
+    }
+    button:hover { transform: translateY(-1px); filter: brightness(1.08); }
+
+    .gauge {
+      margin: 10px 0;
+      background: #08182a;
+      border: 1px solid #254461;
+      border-radius: 999px;
+      overflow: hidden;
+      height: 20px;
+      position: relative;
+    }
+
+    .gauge-fill {
+      height: 100%;
+      width: 0;
+      transition: width 0.35s ease, background 0.25s ease;
+    }
+
+    .gauge-label {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: 0.75rem;
+      color: #f1f8ff;
+      text-shadow: 0 1px 2px #000;
+      pointer-events: none;
+    }
+
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 0.87rem;
+    }
+    .summary-table td {
+      border-bottom: 1px solid #254866;
+      padding: 6px 2px;
+    }
+    .summary-table td:last-child { text-align: right; font-weight: 700; }
+
+    .status-log {
+      margin-top: 10px;
+      max-height: 130px;
+      overflow: auto;
+      border: 1px solid #2f5172;
+      border-radius: 10px;
+      background: rgba(7, 24, 40, 0.85);
+      padding: 8px;
+      font-size: 0.82rem;
+      line-height: 1.4;
+    }
+    .msg-ok { color: #93f0bd; }
+    .msg-warn { color: #ffd280; }
+    .msg-err { color: #ff9f96; }
+
+    .workspace {
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+
+    .channels {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .channel {
+      background: rgba(15, 36, 58, 0.95);
+      border: 1px solid #325777;
+      border-radius: var(--radius);
+      padding: 10px;
+      box-shadow: var(--shadow);
+    }
+
+    .channel h3 { margin: 0 0 8px; font-size: 0.96rem; letter-spacing: .5px; }
+
+    .slot {
+      min-height: 102px;
+      border: 2px dashed var(--slot-border);
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(19, 49, 78, 0.85), rgba(10, 29, 45, 0.95));
+      padding: 8px;
+      margin-bottom: 8px;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      position: relative;
+    }
+    .slot:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px #88d0ff, 0 8px 20px rgba(3, 12, 22, 0.6); }
+    .slot.over { border-color: #9be5ff; box-shadow: 0 0 18px rgba(23, 162, 255, 0.48); }
+
+    .slot-head { display: flex; justify-content: space-between; font-size: .78rem; color: #c6e2ff; }
+    .slot-empty { color: #86a9cb; font-size: .8rem; margin-top: 8px; }
+    .slot-empty b { color: #c7e6ff; }
+
+    .dimm {
+      background: linear-gradient(180deg, #264f39, #1c3c2d);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 10px;
+      padding: 8px 8px 16px;
+      margin-top: 6px;
+      cursor: grab;
+      user-select: none;
+      transition: transform .18s ease, box-shadow .18s ease, filter .2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .dimm::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(135deg, rgba(255,255,255,0.06) 0 4px, transparent 4px 10px);
+      opacity: 0.28;
+      pointer-events: none;
+    }
+    .dimm::after {
+      content: "";
+      position: absolute;
+      left: 5%;
+      right: 5%;
+      bottom: 4px;
+      height: 8px;
+      border-radius: 0 0 6px 6px;
+      background: repeating-linear-gradient(90deg, #cba24a 0 8px, #e4c675 8px 12px);
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,0.38);
+    }
+    .dimm:hover { transform: translateY(-1px); box-shadow: 0 8px 14px rgba(0,0,0,.35); }
+    .dimm.dragging { opacity: .65; filter: saturate(1.2); }
+    .dimm.ok { background: linear-gradient(180deg, #2e7a54, #235d41); }
+    .dimm.warn { background: linear-gradient(180deg, #8a6123, #674716); }
+    .dimm.err { background: linear-gradient(180deg, #8a3131, #661f1f); }
+
+    .dimm .title,
+    .dimm .meta,
+    .dimm .chips { position: relative; z-index: 1; }
+    .dimm .title { font-size: .9rem; font-weight: 700; }
+    .dimm .meta { font-size: .75rem; color: #d6ebff; margin-bottom: 6px; }
+    .chips {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+    }
+    .chip {
+      height: 12px;
+      border-radius: 3px;
+      border: 1px solid rgba(10, 20, 10, 0.6);
+      background: linear-gradient(180deg, #1a1f2f, #070b12);
+      box-shadow: inset 0 1px 1px rgba(255,255,255,0.07);
+    }
+    .chip.off {
+      opacity: 0.35;
+      filter: grayscale(0.8);
+    }
+
+    .pool {
+      background: rgba(14, 34, 52, 0.95);
+      border: 1px solid #355f82;
+      border-radius: var(--radius);
+      padding: 10px;
+    }
+
+    .pool-list { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+
+    .legend {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+      font-size: 0.8rem;
+      color: #bcd7f0;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+
+    .creator {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    select {
+      width: 100%;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid #3e6891;
+      background: #112f4b;
+      color: var(--text);
+    }
+
+    @media (max-width: 1080px) {
+      .app { grid-template-columns: 1fr; }
+      .channels { grid-template-columns: 1fr; }
+      .creator { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel">
+      <h1>Simulateur HPE ProLiant DL320 G6</h1>
+      <p class="small">DDR3 • 3 canaux (A/B/C) • 9 slots • validation temps réel</p>
+      <div class="quick-help"><strong>Guide rapide :</strong> 1) Ajoutez des DIMM, 2) glissez dans les slots, 3) cliquez <em>Vérifier</em>. Double-cliquez une barrette installée pour la remettre au stock.</div>
+
+      <h2>Pré-réglages</h2>
+      <div class="btns">
+        <button data-preset="current">Config actuelle</button>
+        <button data-preset="balanced6">6 × 4 Go équilibré</button>
+        <button data-preset="full9">9 × 2 Go complet</button>
+        <button id="resetBtn">Réinitialiser</button>
+      </div>
+
+      <h2>Indicateurs</h2>
+      <div class="gauge"><div id="balanceGauge" class="gauge-fill"></div><div id="balanceLabel" class="gauge-label">Équilibre: 0%</div></div>
+      <div class="gauge"><div id="freqGauge" class="gauge-fill"></div><div id="freqLabel" class="gauge-label">Fréquence effective: 0 MT/s</div></div>
+
+      <table class="summary-table" id="summaryTable">
+        <tr><td>Capacité totale</td><td id="sumCapacity">0 Go</td></tr>
+        <tr><td>Type DIMM</td><td id="sumType">-</td></tr>
+        <tr><td>Nombre barrettes</td><td id="sumCount">0</td></tr>
+        <tr><td>Ranks totaux</td><td id="sumRanks">0</td></tr>
+        <tr><td>Canal A/B/C</td><td id="sumChannels">0 / 0 / 0 Go</td></tr>
+      </table>
+
+      <h2>Validation</h2>
+      <button id="checkBtn" style="width:100%;">Vérifier la configuration</button>
+      <div id="statusLog" class="status-log"></div>
+    </aside>
+
+    <main class="workspace">
+      <section class="channels" id="channels"></section>
+
+      <section class="pool">
+        <h2 style="margin-top:0;">Stock de barrettes (glisser-déposer)</h2>
+        <div class="legend">
+          <span><i class="dot" style="background: var(--ok)"></i>Configuration OK</span>
+          <span><i class="dot" style="background: var(--warn)"></i>Avertissement</span>
+          <span><i class="dot" style="background: var(--err)"></i>Erreur</span>
+        </div>
+        <div class="creator">
+          <select id="sizeSelect"><option>2</option><option>4</option><option>8</option><option>16</option></select>
+          <select id="typeSelect"><option>RDIMM</option><option>UDIMM</option></select>
+          <select id="freqSelect"><option>800</option><option>1066</option><option selected>1333</option></select>
+          <select id="qtySelect"><option>1</option><option>2</option><option>3</option><option>6</option><option>9</option></select>
+          <button id="addDimmBtn">Ajouter</button>
+        </div>
+        <div id="pool" class="pool-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    /**
+     * Simulateur mémoire DL320 G6.
+     * Données principales : slots, modules, validations et jauges.
+     */
+    const SLOT_LAYOUT = [
+      { id: 'A1', channel: 'A', label: 'PROC1 DIMM1A' },
+      { id: 'A2', channel: 'A', label: 'PROC1 DIMM2D' },
+      { id: 'A3', channel: 'A', label: 'PROC1 DIMM3A' },
+      { id: 'B1', channel: 'B', label: 'PROC1 DIMM4B' },
+      { id: 'B2', channel: 'B', label: 'PROC1 DIMM5E' },
+      { id: 'B3', channel: 'B', label: 'PROC1 DIMM6B' },
+      { id: 'C1', channel: 'C', label: 'PROC1 DIMM7C' },
+      { id: 'C2', channel: 'C', label: 'PROC1 DIMM8F' },
+      { id: 'C3', channel: 'C', label: 'PROC1 DIMM9C' },
+    ];
+
+    const state = {
+      slots: Object.fromEntries(SLOT_LAYOUT.map(s => [s.id, null])),
+      pool: [],
+      dragSource: null,
+      lastMessages: []
+    };
+
+    const channelsEl = document.getElementById('channels');
+    const poolEl = document.getElementById('pool');
+    const statusLogEl = document.getElementById('statusLog');
+
+    /** Retourne le rank basé sur la taille et le type de DIMM. */
+    function computeRank(size, type) {
+      const udimm = { 2: 1, 4: 2, 8: 2, 16: 4 };
+      const rdimm = { 2: 1, 4: 1, 8: 2, 16: 4 };
+      return (type === 'UDIMM' ? udimm : rdimm)[size] || 1;
+    }
+
+    /** Crée un objet barrette DIMM. */
+    function createDimm(size, type, freq) {
+      return {
+        id: crypto.randomUUID(),
+        size: Number(size),
+        type,
+        freq: Number(freq),
+        rank: computeRank(Number(size), type)
+      };
+    }
+
+    /** Ajoute un message dans le panneau de validation. */
+    function pushMessage(level, text) {
+      state.lastMessages.push({ level, text });
+    }
+
+    /** Reset des messages de validation. */
+    function clearMessages() {
+      state.lastMessages = [];
+    }
+
+    /** Retourne les DIMM installées et en pool. */
+    function allInstalled() {
+      return Object.values(state.slots).filter(Boolean);
+    }
+
+    /**
+     * Évalue configuration selon règles HPE simplifiées.
+     * - Pas de mélange RDIMM/UDIMM
+     * - max 8 ranks/canal
+     * - score équilibre par capacité canal
+     * - fréquence effective ajustée
+     */
+    function evaluateConfiguration() {
+      clearMessages();
+      const installed = allInstalled();
+      const channels = { A: [], B: [], C: [] };
+      SLOT_LAYOUT.forEach(slot => {
+        const dimm = state.slots[slot.id];
+        if (dimm) channels[slot.channel].push(dimm);
+      });
+
+      const types = [...new Set(installed.map(d => d.type))];
+      if (!installed.length) pushMessage('warn', 'Aucune DIMM installée : glissez une barrette du stock vers un slot.');
+      if (types.length > 1) {
+        pushMessage('err', 'Erreur critique: mélange RDIMM et UDIMM interdit sur ce serveur.');
+      }
+
+      const channelTotals = {
+        A: channels.A.reduce((a, d) => a + d.size, 0),
+        B: channels.B.reduce((a, d) => a + d.size, 0),
+        C: channels.C.reduce((a, d) => a + d.size, 0)
+      };
+      const channelRanks = {
+        A: channels.A.reduce((a, d) => a + d.rank, 0),
+        B: channels.B.reduce((a, d) => a + d.rank, 0),
+        C: channels.C.reduce((a, d) => a + d.rank, 0)
+      };
+
+      for (const c of ['A', 'B', 'C']) {
+        if (channelRanks[c] > 8) {
+          pushMessage('err', `Canal ${c}: dépassement de ranks (${channelRanks[c]}/8 max).`);
+        }
+      }
+
+      const totals = Object.values(channelTotals);
+      const maxCap = Math.max(...totals, 0);
+      const minCap = Math.min(...totals, 0);
+      const balanceScore = maxCap === 0 ? 0 : Math.max(0, Math.round(100 - ((maxCap - minCap) / maxCap) * 100));
+
+      if (balanceScore >= 90) pushMessage('ok', 'Équilibrage excellent entre canaux.');
+      else if (balanceScore >= 70) pushMessage('warn', 'Équilibrage acceptable mais perfectible.');
+      else pushMessage('err', 'Déséquilibre important des canaux mémoire.');
+
+      const emptySlots = SLOT_LAYOUT.filter(s => !state.slots[s.id]);
+      if (emptySlots.length > 0) {
+        const msg = emptySlots.length >= 4
+          ? 'Plusieurs slots sont vides: complétez pour de meilleures performances.'
+          : 'Quelques slots sont vides: possibilité d’optimisation mémoire.';
+        pushMessage(emptySlots.length >= 6 ? 'warn' : 'ok', msg);
+      }
+
+      let effectiveFreq = 0;
+      if (installed.length) {
+        const avgFreq = installed.reduce((a, d) => a + d.freq, 0) / installed.length;
+        const minFreq = Math.min(...installed.map(d => d.freq));
+        const threePerChannel = Object.values(channels).some(ch => ch.length === 3);
+        const highDensity = installed.some(d => d.size === 16);
+        let cap = 1333;
+        if (threePerChannel || highDensity) cap = 1066;
+        effectiveFreq = Math.min(minFreq, cap, avgFreq);
+        effectiveFreq = effectiveFreq >= 1200 ? 1333 : effectiveFreq >= 930 ? 1066 : 800;
+      }
+
+      if (effectiveFreq === 1333) pushMessage('ok', 'Fréquence optimale atteinte (1333 MT/s).');
+      else if (effectiveFreq === 1066) pushMessage('warn', 'Fréquence réduite à 1066 MT/s selon densité/occupation.');
+      else if (effectiveFreq === 800 && installed.length) pushMessage('warn', 'Fréquence basse (800 MT/s), vérifier homogénéité des DIMM.');
+
+      return {
+        installed,
+        channelTotals,
+        channelRanks,
+        totalCapacity: installed.reduce((a, d) => a + d.size, 0),
+        totalRanks: installed.reduce((a, d) => a + d.rank, 0),
+        balanceScore,
+        effectiveFreq,
+        types,
+        errors: state.lastMessages.filter(m => m.level === 'err').length,
+        warnings: state.lastMessages.filter(m => m.level === 'warn').length
+      };
+    }
+
+    /** Retourne l'état visuel d'une DIMM. */
+    function dimmStatus(dimm, evaluation) {
+      if (!dimm) return 'ok';
+      if (evaluation.errors > 0) {
+        if (evaluation.types.length > 1) return 'err';
+        const ch = SLOT_LAYOUT.find(s => state.slots[s.id]?.id === dimm.id)?.channel;
+        if (ch && evaluation.channelRanks[ch] > 8) return 'err';
+      }
+      return evaluation.warnings > 0 ? 'warn' : 'ok';
+    }
+
+    /** Dessine les slots/canaux et les modules installés. */
+    function renderSlots(evaluation) {
+      channelsEl.innerHTML = '';
+      ['A', 'B', 'C'].forEach(channel => {
+        const wrap = document.createElement('section');
+        wrap.className = 'channel';
+        wrap.innerHTML = `<h3>Canal ${channel}</h3>`;
+
+        SLOT_LAYOUT.filter(s => s.channel === channel).forEach(slot => {
+          const slotEl = document.createElement('div');
+          slotEl.className = 'slot';
+          slotEl.dataset.slot = slot.id;
+          slotEl.innerHTML = `<div class="slot-head"><strong>${slot.id}</strong><span>${slot.label}</span></div>`;
+
+          const dimm = state.slots[slot.id];
+          if (dimm) {
+            const cls = dimmStatus(dimm, evaluation);
+            const dimmEl = renderDimmElement(dimm, cls, slot.channel);
+            slotEl.appendChild(dimmEl);
+          } else {
+            const hint = document.createElement('div');
+            hint.className = 'slot-empty';
+            hint.innerHTML = 'Slot vide • <b>Déposez une barrette</b>';
+            slotEl.appendChild(hint);
+          }
+
+          attachDropEvents(slotEl);
+          wrap.appendChild(slotEl);
+        });
+
+        channelsEl.appendChild(wrap);
+      });
+    }
+
+    /** Dessine le pool de barrettes disponibles. */
+    function renderPool(evaluation) {
+      poolEl.innerHTML = '';
+      state.pool.forEach(dimm => {
+        const dimmEl = renderDimmElement(dimm, dimmStatus(dimm, evaluation), 'POOL');
+        poolEl.appendChild(dimmEl);
+      });
+      attachDropEvents(poolEl, true);
+    }
+
+
+    /** Génère une texture visuelle de puces selon la capacité/rank. */
+    function renderChipTexture(dimm) {
+      const chipCount = Math.min(8, Math.max(4, dimm.rank * 2));
+      let html = '';
+      for (let i = 0; i < 8; i++) {
+        html += `<span class="chip ${i < chipCount ? '' : 'off'}"></span>`;
+      }
+      return html;
+    }
+
+    /** Crée un composant DOM de barrette DIMM draggable. */
+    function renderDimmElement(dimm, status, channel) {
+      const el = document.createElement('article');
+      el.className = `dimm ${status}`;
+      el.draggable = true;
+      el.dataset.dimmId = dimm.id;
+      el.title = `DIMM ${dimm.size} Go ${dimm.type} | ${dimm.freq} MT/s | Rank ${dimm.rank} | Canal: ${channel}`;
+      el.innerHTML = `
+        <div class="title">${dimm.size} Go ${dimm.type}</div>
+        <div class="meta">${dimm.freq} MT/s • Rank ${dimm.rank} • ${dimm.type === 'RDIMM' ? 'Registered' : 'Unbuffered'}</div>
+        <div class="chips">${renderChipTexture(dimm)}</div>
+      `;
+
+      el.addEventListener('dragstart', ev => {
+        state.dragSource = locateDimm(dimm.id);
+        el.classList.add('dragging');
+        ev.dataTransfer.setData('text/plain', dimm.id);
+      });
+      el.addEventListener('dragend', () => el.classList.remove('dragging'));
+      el.addEventListener('dblclick', () => {
+        const source = locateDimm(dimm.id);
+        if (source?.slotId) {
+          state.pool.push(state.slots[source.slotId]);
+          state.slots[source.slotId] = null;
+          refresh();
+        }
+      });
+
+      return el;
+    }
+
+    /** Trouve la position d'une DIMM (slot ou pool). */
+    function locateDimm(dimmId) {
+      for (const [slotId, dimm] of Object.entries(state.slots)) {
+        if (dimm?.id === dimmId) return { slotId };
+      }
+      const poolIndex = state.pool.findIndex(d => d.id === dimmId);
+      if (poolIndex >= 0) return { poolIndex };
+      return null;
+    }
+
+    /** Active les événements de drop sur une cible. */
+    function attachDropEvents(target, isPool = false) {
+      target.addEventListener('dragover', ev => {
+        ev.preventDefault();
+        target.classList.add('over');
+      });
+      target.addEventListener('dragleave', () => target.classList.remove('over'));
+      target.addEventListener('drop', ev => {
+        ev.preventDefault();
+        target.classList.remove('over');
+        const dimmId = ev.dataTransfer.getData('text/plain');
+        moveDimm(dimmId, isPool ? null : target.dataset.slot);
+      });
+    }
+
+    /** Déplace une DIMM vers un slot ou vers le pool. */
+    function moveDimm(dimmId, destinationSlotId) {
+      const src = locateDimm(dimmId);
+      if (!src) return;
+      let dimm;
+
+      if (src.slotId) {
+        dimm = state.slots[src.slotId];
+        state.slots[src.slotId] = null;
+      } else {
+        dimm = state.pool.splice(src.poolIndex, 1)[0];
+      }
+
+      if (!destinationSlotId) {
+        state.pool.push(dimm);
+      } else {
+        if (state.slots[destinationSlotId]) {
+          const displaced = state.slots[destinationSlotId];
+          state.pool.push(displaced);
+        }
+        state.slots[destinationSlotId] = dimm;
+      }
+
+      refresh();
+    }
+
+    /** Met à jour les jauges visuelles. */
+    function renderGauges(e) {
+      const bFill = document.getElementById('balanceGauge');
+      const bLabel = document.getElementById('balanceLabel');
+      bFill.style.width = `${e.balanceScore}%`;
+      bFill.style.background = e.balanceScore >= 90 ? 'var(--ok)' : e.balanceScore >= 70 ? 'var(--warn)' : 'var(--err)';
+      bLabel.textContent = `Équilibre canaux: ${e.balanceScore}%`;
+
+      const freqPercent = Math.round((e.effectiveFreq / 1333) * 100);
+      const fFill = document.getElementById('freqGauge');
+      const fLabel = document.getElementById('freqLabel');
+      fFill.style.width = `${freqPercent}%`;
+      fFill.style.background = e.effectiveFreq >= 1333 ? 'var(--ok)' : e.effectiveFreq >= 1066 ? 'var(--warn)' : 'var(--err)';
+      fLabel.textContent = `Fréquence effective: ${e.effectiveFreq || 0} MT/s`;
+    }
+
+    /** Met à jour tableau de synthèse. */
+    function renderSummary(e) {
+      document.getElementById('sumCapacity').textContent = `${e.totalCapacity} Go`;
+      document.getElementById('sumType').textContent = e.types.length ? e.types.join(' + ') : '-';
+      document.getElementById('sumCount').textContent = `${e.installed.length}`;
+      document.getElementById('sumRanks').textContent = `${e.totalRanks}`;
+      document.getElementById('sumChannels').textContent = `${e.channelTotals.A} / ${e.channelTotals.B} / ${e.channelTotals.C} Go`;
+    }
+
+    /** Affiche les messages de validation. */
+    function renderMessages() {
+      statusLogEl.innerHTML = state.lastMessages.map(m => `<div class="msg-${m.level}">• ${m.text}</div>`).join('') || '<div class="msg-warn">• Aucune barrette installée.</div>';
+    }
+
+    /** Recharge toutes les parties de l'UI. */
+    function refresh() {
+      const evaluation = evaluateConfiguration();
+      renderSlots(evaluation);
+      renderPool(evaluation);
+      renderGauges(evaluation);
+      renderSummary(evaluation);
+      renderMessages();
+    }
+
+    /** Applique un pré-réglage donné. */
+    function applyPreset(name) {
+      state.slots = Object.fromEntries(SLOT_LAYOUT.map(s => [s.id, null]));
+      state.pool = [];
+      const setSlot = (slotId, size, type = 'RDIMM', freq = 1333) => state.slots[slotId] = createDimm(size, type, freq);
+
+      if (name === 'current') {
+        setSlot('A2', 2, 'RDIMM', 1066); // PROC1 DIMM2D
+        setSlot('A3', 2, 'RDIMM', 1066); // PROC1 DIMM3A
+        setSlot('B2', 2, 'RDIMM', 1066); // PROC1 DIMM5E
+        setSlot('B3', 2, 'RDIMM', 1066); // PROC1 DIMM6B
+        setSlot('C3', 2, 'RDIMM', 1066); // PROC1 DIMM9C
+      } else if (name === 'balanced6') {
+        ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].forEach(slot => setSlot(slot, 4, 'RDIMM', 1333));
+      } else if (name === 'full9') {
+        SLOT_LAYOUT.forEach(slot => setSlot(slot.id, 2, 'UDIMM', 1066));
+      }
+
+      for (let i = 0; i < 8; i++) state.pool.push(createDimm(4, 'RDIMM', 1333));
+      refresh();
+    }
+
+    /** Attache les handlers boutons et créateur de DIMM. */
+    function wireActions() {
+      document.querySelectorAll('[data-preset]').forEach(btn => {
+        btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+      });
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        state.slots = Object.fromEntries(SLOT_LAYOUT.map(s => [s.id, null]));
+        state.pool = [];
+        refresh();
+      });
+      document.getElementById('checkBtn').addEventListener('click', refresh);
+
+      document.getElementById('addDimmBtn').addEventListener('click', () => {
+        const size = Number(document.getElementById('sizeSelect').value);
+        const type = document.getElementById('typeSelect').value;
+        const freq = Number(document.getElementById('freqSelect').value);
+        const qty = Number(document.getElementById('qtySelect').value);
+        for (let i = 0; i < qty; i++) state.pool.push(createDimm(size, type, freq));
+        refresh();
+      });
+    }
+
+    wireActions();
+    applyPreset('current');
+  </script>
+</body>
+</html>
